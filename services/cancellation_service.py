@@ -1,6 +1,7 @@
 from database.database import get_connection
 from services import data_store
 from services.flight_service import FlightService
+from services.reservation_service import ReservationService
 import uuid
 from models.booking import Booking
 
@@ -46,6 +47,12 @@ class CancellationService:
             
             # Delete their old waiting list record from SQLite
             cursor.execute('DELETE FROM waiting_list WHERE wait_id = ?', (wait_id,))
+            
+            # Carry their passenger details over to the new booking (W<id> -> BKG-...)
+            # using the SAME connection/transaction to avoid a database lock.
+            old_details = ReservationService.get_passenger_details(f'W{wait_id}', conn)
+            if old_details:
+                ReservationService.save_passenger_details(new_booking_id, old_details, conn)
             
             # Insert their new booking into the Booking AVL Tree
             new_b = Booking(new_booking_id, next_user_id, flight.flight_number, 'CONFIRMED', 'Just Now')

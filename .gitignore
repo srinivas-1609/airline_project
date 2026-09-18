@@ -1,0 +1,11 @@
+# logs & local tooling
+*.log
+cloudflared.exe
+.freebuff/
+
+# python
+__pycache__/
+*.pyc
+
+# local database (auto-created and seeded on first run)
+airline_reservation_system/database/*.db

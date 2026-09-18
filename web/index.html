@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkyLine · Airline Reservation System</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- ================= NAVBAR ================= -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#" onclick="showSection('home'); return false;">
+        <span class="brand-icon">✈</span> SkyLine<span class="brand-sub">Reservations</span>
+      </a>
+      <div class="nav-links">
+        <a href="#" onclick="showSection('home'); return false;">Flights</a>
+        <a href="#" onclick="showSection('route'); return false;">Route Finder</a>
+        <a href="#" id="nav-bookings" class="hidden" onclick="showSection('bookings'); return false;">My Bookings</a>
+        <a href="#" id="nav-admin" class="hidden" onclick="showSection('admin'); return false;">Admin Panel</a>
+      </div>
+      <div class="nav-auth">
+        <div id="auth-buttons">
+          <button class="btn ghost" onclick="openModal('modal-login')">Sign in</button>
+          <button class="btn primary" onclick="openModal('modal-register')">Create account</button>
+        </div>
+        <div id="user-chip" class="hidden">
+          <span class="user-avatar" id="user-initial">J</span>
+          <span id="user-name">John Doe</span>
+          <button class="btn ghost sm" onclick="logout()">Logout</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ================= HOME / FLIGHT SEARCH ================= -->
+  <main>
+    <section id="section-home" class="section">
+      <div class="hero">
+        <h1>Find your next flight</h1>
+        <p>Powered by AVL Trees, Dijkstra's Algorithm &amp; Min-Heap waitlists — a real DSA engine under the hood.</p>
+        <div class="search-card">
+          <div class="field">
+            <label>From</label>
+            <select id="search-from"><option value="">Any</option></select>
+          </div>
+          <button class="swap" title="Swap" onclick="swapStations()">⇄</button>
+          <div class="field">
+            <label>To</label>
+            <select id="search-to"><option value="">Any</option></select>
+          </div>
+          <div class="field">
+            <label>Date</label>
+            <input type="date" id="search-date">
+          </div>
+          <button class="btn primary lg" onclick="searchFlights()">Search flights</button>
+        </div>
+      </div>
+
+      <div class="container">
+        <div class="section-head">
+          <h2 id="results-title">All available flights</h2>
+          <span class="muted" id="results-count"></span>
+        </div>
+        <div id="flight-grid" class="flight-grid"></div>
+      </div>
+    </section>
+
+    <!-- ================= ROUTE FINDER ================= -->
+    <section id="section-route" class="section hidden">
+      <div class="container">
+        <h1>Shortest Route Finder <span class="tag">Dijkstra</span></h1>
+        <p class="muted">The engine runs Dijkstra's algorithm over a 15-airport graph to compute the shortest path.</p>
+        <div class="search-card narrow">
+          <div class="field">
+            <label>Origin</label>
+            <select id="route-from"></select>
+          </div>
+          <div class="field">
+            <label>Destination</label>
+            <select id="route-to"></select>
+          </div>
+          <button class="btn primary lg" onclick="findRoute()">Find route</button>
+        </div>
+        <div id="route-result" class="route-result hidden"></div>
+      </div>
+    </section>
+
+    <!-- ================= MY BOOKINGS ================= -->
+    <section id="section-bookings" class="section hidden">
+      <div class="container">
+        <h1>My Bookings</h1>
+        <div id="bookings-list" class="bookings-list"></div>
+      </div>
+    </section>
+
+    <!-- ================= ADMIN ================= -->
+    <section id="section-admin" class="section hidden">
+      <div class="container">
+        <h1>Admin Panel</h1>
+        <div class="stats-grid" id="stats-grid"></div>
+
+        <div class="admin-tabs">
+          <button class="tab active" data-tab="flights" onclick="switchTab('flights')">Flights</button>
+          <button class="tab" data-tab="bookings" onclick="switchTab('bookings')">All Bookings</button>
+          <button class="tab" data-tab="waitlist" onclick="switchTab('waitlist')">Waiting List</button>
+        </div>
+
+        <div id="admin-flights" class="admin-pane">
+          <div class="card">
+            <h3>Add a new flight</h3>
+            <form id="add-flight-form" class="form-grid" onsubmit="addFlight(event)">
+              <input placeholder="Flight number e.g. AI123" id="af-number" required>
+              <input placeholder="Airline" id="af-airline" required>
+              <select id="af-source" required></select>
+              <select id="af-destination" required></select>
+              <input type="date" id="af-date" required>
+              <input type="time" id="af-dep" required>
+              <input type="time" id="af-arr" required>
+              <input type="number" placeholder="Total seats" id="af-seats" min="1" required>
+              <input type="number" placeholder="Price (₹)" id="af-price" min="0" step="0.01" required>
+              <button class="btn primary" type="submit">Add flight</button>
+            </form>
+          </div>
+          <div class="table-wrap card">
+            <table id="admin-flights-table">
+              <thead><tr><th>Flight</th><th>Airline</th><th>Route</th><th>Date</th><th>Times</th><th>Seats</th><th>Price</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="admin-bookings" class="admin-pane hidden">
+          <div class="table-wrap card">
+            <table id="admin-bookings-table">
+              <thead><tr><th>Booking ID</th><th>User</th><th>Flight</th><th>Passenger</th><th>Phone</th><th>Status</th><th>Date</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="admin-waitlist" class="admin-pane hidden">
+          <div class="table-wrap card">
+            <table id="admin-waitlist-table">
+              <thead><tr><th>#</th><th>User</th><th>Flight</th><th>Priority</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= MODALS ================= -->
+  <div class="modal-overlay hidden" id="modal-login" onclick="overlayClose(event, 'modal-login')">
+    <div class="modal">
+      <button class="modal-x" onclick="closeModal('modal-login')">✕</button>
+      <h2>Welcome back</h2>
+      <p class="muted">Sign in to book flights. Demo: <code>johndoe / pass123</code> or <code>admin / admin123</code></p>
+      <form onsubmit="doLogin(event)">
+        <label>Username</label>
+        <input id="login-username" required autocomplete="username">
+        <label>Password</label>
+        <input id="login-password" type="password" required autocomplete="current-password">
+        <div id="login-error" class="form-error hidden"></div>
+        <button class="btn primary full" type="submit">Sign in</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="modal-register" onclick="overlayClose(event, 'modal-register')">
+    <div class="modal">
+      <button class="modal-x" onclick="closeModal('modal-register')">✕</button>
+      <h2>Create your account</h2>
+      <form onsubmit="doRegister(event)">
+        <label>Full name</label>
+        <input id="reg-name" required>
+        <label>Username</label>
+        <input id="reg-username" required autocomplete="username">
+        <label>Password</label>
+        <input id="reg-password" type="password" required autocomplete="new-password">
+        <div id="register-error" class="form-error hidden"></div>
+        <button class="btn primary full" type="submit">Create account</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= PASSENGER DETAILS MODAL ================= -->
+  <div class="modal-overlay hidden" id="modal-passenger" onclick="overlayClose(event, 'modal-passenger')">
+    <div class="modal wide">
+      <button class="modal-x" onclick="closeModal('modal-passenger')">✕</button>
+      <h2>Passenger details</h2>
+      <p class="muted" id="pd-flight-label">Booking flight</p>
+      <form onsubmit="submitPassengerDetails(event)">
+        <label>Full name *</label>
+        <input id="pd-name" required placeholder="As on government ID">
+        <div class="form-row">
+          <div>
+            <label>Age</label>
+            <input id="pd-age" type="number" min="1" max="120" placeholder="Years">
+          </div>
+          <div>
+            <label>Gender</label>
+            <select id="pd-gender">
+              <option value="">Prefer not to say</option>
+              <option>Male</option>
+              <option>Female</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>Phone number *</label>
+            <input id="pd-phone" required placeholder="+91 98765 43210">
+          </div>
+          <div>
+            <label>Email</label>
+            <input id="pd-email" type="email" placeholder="you@example.com">
+          </div>
+        </div>
+        <label>Address</label>
+        <textarea id="pd-address" rows="2" placeholder="House no, street, city, PIN"></textarea>
+        <div id="pd-error" class="form-error hidden"></div>
+        <button class="btn primary full" type="submit" id="pd-submit">Confirm booking</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= TOAST ================= -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

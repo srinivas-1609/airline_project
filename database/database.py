@@ -7,7 +7,11 @@ def get_connection():
     """Establishes and returns a connection to the SQLite database."""
     # Ensure the directory exists
     os.makedirs(os.path.dirname(DB_NAME), exist_ok=True)
-    return sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_NAME)
+    # Wait up to 5s for a locked database instead of failing immediately
+    # (needed now that the web server handles concurrent requests).
+    conn.execute('PRAGMA busy_timeout = 5000')
+    return conn
 
 def setup_database():
     """Creates the necessary tables if they do not exist."""
@@ -89,6 +93,22 @@ def setup_database():
             request_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(user_id),
             FOREIGN KEY (flight_number) REFERENCES flights(flight_number)
+        )
+    ''')
+
+    # 7. Passenger Details Table (captured when a user books a ticket)
+    #    booking_ref is either a Booking ID (BKG-XXXXXXXX) or a waitlist ref (W<wait_id>)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS passenger_details (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            booking_ref TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            age INTEGER,
+            gender TEXT,
+            phone TEXT,
+            email TEXT,
+            address TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
 
