@@ -15,7 +15,7 @@ class AdminBookingsWindow:
         # Revenue Display Area
         self.revenue_label = tk.Label(self.root, text="Calculating Revenue...", font=("Arial", 14, "bold"), fg="#2E7D32", bg="#f4f6f9")
         self.revenue_label.pack(pady=5)
-
+        
         # Table for displaying ALL bookings
         columns = ("Booking ID", "User ID", "Flight No", "Status", "Date")
         self.tree = ttk.Treeview(self.root, columns=columns, show="headings", height=12)

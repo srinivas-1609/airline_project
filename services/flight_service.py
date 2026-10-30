@@ -33,7 +33,7 @@ class FlightService:
         conn.commit()
         conn.close()
 
-        # Delete from our AVL Tree using the custom delete method you wrote!
+        # Delete from our AVL Tree using the custom delete method we wrote!
         data_store.flight_root = data_store.flight_tree.delete(data_store.flight_root, flight_number)
         return True, f"Flight {flight_number} deleted successfully!"
 

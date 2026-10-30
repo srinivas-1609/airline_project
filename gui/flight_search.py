@@ -4,70 +4,89 @@ from services.flight_service import FlightService
 from services.reservation_service import ReservationService
 
 class FlightSearchWindow:
-    def __init__(self, root, user_data):
+    def __init__(self, root, user, login_root=None):
         self.root = tk.Toplevel(root)
-        self.root.title("Search and Book Flights")
-        self.root.geometry("800x450")
-        self.user_data = user_data
+        self.root.title("Search & Book Flights")
+        self.root.geometry("800x550")
+        self.user = user
+        self.login_root = login_root
+
+        # --- NEW BACK BUTTON ---
+        tk.Button(self.root, text="⬅ Back to Dashboard", command=self.root.destroy, bg="#607D8B", fg="white", font=("Arial", 10, "bold")).pack(anchor="nw", padx=10, pady=10)
 
         tk.Label(self.root, text="Available Flights", font=("Arial", 16, "bold")).pack(pady=10)
-        search_frame = tk.Frame(self.root)
-        search_frame.pack(pady=10)       
-        tk.Label(search_frame, text="Search by Flight Number:").pack(side=tk.LEFT, padx=5)
-        self.search_entry = tk.Entry(search_frame)
-        self.search_entry.pack(side=tk.LEFT, padx=5)       
-        tk.Button(search_frame, text="Search Flight", command=self.search_flight, bg="#2196F3", fg="white").pack(side=tk.LEFT, padx=5)
-        tk.Button(search_frame, text="Show All", command=self.load_all_flights, bg="#757575", fg="white").pack(side=tk.LEFT, padx=5)
+
         columns = ("Flight No", "Airline", "From", "To", "Date", "Seats", "Price")
-        self.tree = ttk.Treeview(self.root, columns=columns, show="headings", height=10)
+        self.tree = ttk.Treeview(self.root, columns=columns, show="headings", height=15)
         
         for col in columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=100, anchor=tk.CENTER)
         self.tree.pack(pady=10, fill=tk.X, padx=20)
-        tk.Button(self.root, text="Book Flight", command=self.book_flight, bg="#4CAF50", fg="white", font=("Arial", 12, "bold")).pack(pady=10)
-        self.load_all_flights()
 
-    def load_all_flights(self):
-        """Fetches all flights using Inorder Traversal of the AVL Tree."""
+        tk.Button(self.root, text="Book Selected Flight", command=self.initiate_booking, bg="#2196F3", fg="white", font=("Arial", 12, "bold")).pack(pady=10)
+
+        self.load_flights()
+
+    def load_flights(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
-        
         flights = FlightService.get_all_flights()
         for f in flights:
             self.tree.insert("", tk.END, values=(f.flight_number, f.airline, f.source, f.destination, f.flight_date, f.available_seats, f.price))
 
-    def search_flight(self):
-        """Searches for a specific flight using AVL Tree search (O(log n))."""
-        flight_num = self.search_entry.get().strip().upper()
-        if not flight_num:
-            messagebox.showwarning("Input Error", "Please enter a Flight Number.")
+    def initiate_booking(self):
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("Selection Error", "Please select a flight to book.")
             return
 
-        flight = FlightService.search_flight(flight_num)
-        
-        for row in self.tree.get_children():
-            self.tree.delete(row)
+        if self.user['role'] == 'guest':
+            messagebox.showwarning("Login Required", "You must log in to book a flight. Redirecting to login.")
+            self.root.destroy()
+            if self.login_root:
+                # Closes the dashboard and brings back the login screen
+                self.root.master.destroy() 
+                self.login_root.deiconify()
+            return
+
+        flight_num = self.tree.item(selected)['values'][0]
+        price = self.tree.item(selected)['values'][6]
+        self.show_booking_form(flight_num, price)
+
+    def show_booking_form(self, flight_num, price):
+        popup = tk.Toplevel(self.root)
+        popup.title("Confirm Booking")
+        popup.geometry("300x300")
+
+        tk.Label(popup, text=f"Booking: {flight_num}", font=("Arial", 12, "bold")).pack(pady=10)
+        tk.Label(popup, text=f"Total Price: ₹{price}", font=("Arial", 12, "bold"), fg="green").pack(pady=5)
+
+        tk.Label(popup, text="Passenger Name:").pack()
+        name_entry = tk.Entry(popup)
+        name_entry.insert(0, self.user['name'])
+        name_entry.pack(pady=5)
+
+        tk.Label(popup, text="Phone Number:").pack()
+        phone_entry = tk.Entry(popup)
+        phone_entry.pack(pady=5)
+
+        def confirm():
+            name = name_entry.get().strip()
+            phone = phone_entry.get().strip()
             
-        if flight:
-            self.tree.insert("", tk.END, values=(flight.flight_number, flight.airline, flight.source, flight.destination, flight.flight_date, flight.available_seats, flight.price))
-        else:
-            messagebox.showinfo("Not Found", "No flight found with that number.")
-
-    def book_flight(self):
-        """Books a ticket and links it to the database & Booking AVL Tree."""
-        selected_item = self.tree.selection()
-        if not selected_item:
-            messagebox.showwarning("Selection Error", "Please select a flight from the list to book.")
-            return
-
-        flight_num = self.tree.item(selected_item)['values'][0]
-        
-        confirm = messagebox.askyesno("Confirm Booking", f"Do you want to book a ticket for Flight {flight_num}?")
-        if confirm:
-            success, message = ReservationService.book_ticket(self.user_data['user_id'], flight_num)
+            if not name or not phone:
+                messagebox.showwarning("Input Error", "Name and Phone are required.")
+                return
+                
+            passenger_info = {'full_name': name, 'phone': phone}
+            success, msg = ReservationService.book_ticket(self.user['user_id'], flight_num, passenger_info)
+            
             if success:
-                messagebox.showinfo("Booking Success", message)
+                messagebox.showinfo("Success", "Booking Confirmed!")
+                popup.destroy()
+                self.load_flights()
             else:
-                messagebox.showinfo("Booking Status", message) 
-            self.load_all_flights()
+                messagebox.showerror("Error", msg)
+
+        tk.Button(popup, text="Confirm & Pay", command=confirm, bg="#4CAF50", fg="white", font=("Arial", 10, "bold")).pack(pady=20)

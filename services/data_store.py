@@ -31,13 +31,17 @@ def build_expanded_graph():
         ("DEL", "ATQ", 400), ("BOM", "GOI", 400), ("BOM", "PNQ", 120), ("BOM", "BLR", 840), 
         ("BOM", "AMD", 440), ("BLR", "MAA", 290), ("BLR", "TRV", 500), ("BLR", "COK", 360), 
         ("HYD", "BLR", 500), ("HYD", "MAA", 520), ("HYD", "PNQ", 500), ("CCU", "MAA", 1360), 
-        ("AMD", "JAI", 530), ("TRV", "COK", 190)
+        ("AMD", "JAI", 530), ("TRV", "COK", 190),
+        ("AMD","BLR",430),("TRV","DEL",1389)
     ]
     # It's a two-way street (undirected graph)
     for src, dest, dist in edges:
         airport_graph.add_edge(src, dest, dist)
         airport_graph.add_edge(dest, src, dist)
-
+def deload():
+    edges = [
+        ()
+    ]
 def load_all_data():
     """Loads data from SQLite into the Data Structures."""
     global flight_root, booking_root

@@ -40,11 +40,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ----------------------------------------------------------------------------
-# Startup: initialize DB, load data into the DSA structures, seed flights
-# ----------------------------------------------------------------------------
-
 def seed_upcoming_flights():
     """If no flights are scheduled for today or later, generate a week of them."""
     today = date.today()
@@ -86,11 +81,6 @@ def initialize_system():
     data_store.load_all_data()
     seed_upcoming_flights()
 
-
-# ----------------------------------------------------------------------------
-# Serialization helpers
-# ----------------------------------------------------------------------------
-
 def flight_to_dict(f):
     if f is None:
         return None
@@ -128,10 +118,6 @@ def user_public(u):
             "name": u["name"], "role": u["role"]}
 
 
-# ----------------------------------------------------------------------------
-# Auth dependencies
-# ----------------------------------------------------------------------------
-
 def get_current_user(authorization: Optional[str] = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -146,10 +132,6 @@ def require_admin(user=Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
-
-# ----------------------------------------------------------------------------
-# Schemas
-# ----------------------------------------------------------------------------
 
 class LoginInput(BaseModel):
     username: str
@@ -187,11 +169,6 @@ class FlightInput(BaseModel):
     total_seats: int
     price: float
 
-
-# ----------------------------------------------------------------------------
-# Auth endpoints
-# ----------------------------------------------------------------------------
-
 @app.post("/api/login")
 def login(body: LoginInput):
     with _lock:
@@ -227,9 +204,7 @@ def logout(user=Depends(get_current_user)):
     return {"message": "Logged out"}
 
 
-# ----------------------------------------------------------------------------
-# Public data endpoints
-# ----------------------------------------------------------------------------
+
 
 @app.get("/api/airports")
 def airports():
@@ -268,10 +243,6 @@ def shortest_route(
     return {"path": path, "total_distance_km": dist, "stops": max(len(path) - 2, 0)}
 
 
-# ----------------------------------------------------------------------------
-# Passenger endpoints
-# ----------------------------------------------------------------------------
-
 @app.post("/api/bookings")
 def create_booking(body: BookingInput, user=Depends(get_current_user)):
     with _lock:
@@ -301,9 +272,6 @@ def cancel_booking(booking_id: str, user=Depends(get_current_user)):
     return {"success": ok, "message": message}
 
 
-# ----------------------------------------------------------------------------
-# Admin endpoints
-# ----------------------------------------------------------------------------
 
 @app.post("/api/admin/flights")
 def admin_add_flight(body: FlightInput, user=Depends(require_admin)):
@@ -365,10 +333,6 @@ def admin_stats(user=Depends(require_admin)):
             "revenue": revenue,
         }
 
-
-# ----------------------------------------------------------------------------
-# Static frontend (must be mounted last so /api routes win)
-# ----------------------------------------------------------------------------
 
 web_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 app.mount("/", StaticFiles(directory=web_dir, html=True), name="web")

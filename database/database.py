@@ -1,173 +1,74 @@
 import sqlite3
-import os
-
-DB_NAME = 'airline_reservation_system/database/airline.db'
+import datetime
 
 def get_connection():
-    """Establishes and returns a connection to the SQLite database."""
-    # Ensure the directory exists
-    os.makedirs(os.path.dirname(DB_NAME), exist_ok=True)
-    conn = sqlite3.connect(DB_NAME)
-    # Wait up to 5s for a locked database instead of failing immediately
-    # (needed now that the web server handles concurrent requests).
-    conn.execute('PRAGMA busy_timeout = 5000')
-    return conn
+    return sqlite3.connect('airline.db')
 
 def setup_database():
-    """Creates the necessary tables if they do not exist."""
     conn = get_connection()
     cursor = conn.cursor()
-
-    # 1. Users Table (Used for Hash Table integration later)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            name TEXT NOT NULL,
-            email TEXT,
-            phone TEXT,
-            role TEXT NOT NULL -- 'admin' or 'passenger'
-        )
-    ''')
-
-    # 2. Airports Table (Graph Nodes)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS airports (
-            code TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            city TEXT NOT NULL
-        )
-    ''')
-
-    # 3. Routes Table (Graph Edges / Dijkstra)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS routes (
-            route_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            source TEXT NOT NULL,
-            destination TEXT NOT NULL,
-            distance INTEGER NOT NULL,
-            FOREIGN KEY (source) REFERENCES airports(code),
-            FOREIGN KEY (destination) REFERENCES airports(code)
-        )
-    ''')
-
-    # 4. Flights Table (Flight Number AVL Tree)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS flights (
-            flight_number TEXT PRIMARY KEY,
-            airline TEXT NOT NULL,
-            source TEXT NOT NULL,
-            destination TEXT NOT NULL,
-            flight_date TEXT NOT NULL,
-            dep_time TEXT NOT NULL,
-            arr_time TEXT NOT NULL,
-            total_seats INTEGER NOT NULL,
-            available_seats INTEGER NOT NULL,
-            price REAL NOT NULL,
-            FOREIGN KEY (source) REFERENCES airports(code),
-            FOREIGN KEY (destination) REFERENCES airports(code)
-        )
-    ''')
-
-    # 5. Bookings Table (Booking ID AVL Tree)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS bookings (
-            booking_id TEXT PRIMARY KEY,
-            user_id INTEGER NOT NULL,
-            flight_number TEXT NOT NULL,
-            status TEXT NOT NULL, -- 'CONFIRMED' or 'CANCELLED'
-            booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(user_id),
-            FOREIGN KEY (flight_number) REFERENCES flights(flight_number)
-        )
-    ''')
-
-    # 6. Waiting List Table (Priority Queue)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS waiting_list (
-            wait_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            flight_number TEXT NOT NULL,
-            priority INTEGER NOT NULL,
-            request_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(user_id),
-            FOREIGN KEY (flight_number) REFERENCES flights(flight_number)
-        )
-    ''')
-
-    # 7. Passenger Details Table (captured when a user books a ticket)
-    #    booking_ref is either a Booking ID (BKG-XXXXXXXX) or a waitlist ref (W<wait_id>)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS passenger_details (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            booking_ref TEXT UNIQUE NOT NULL,
-            full_name TEXT NOT NULL,
-            age INTEGER,
-            gender TEXT,
-            phone TEXT,
-            email TEXT,
-            address TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, name TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS flights (flight_number TEXT PRIMARY KEY, airline TEXT, source TEXT, destination TEXT, flight_date TEXT, dep_time TEXT, arr_time TEXT, total_seats INTEGER, available_seats INTEGER, price REAL)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS bookings (booking_id TEXT PRIMARY KEY, user_id INTEGER, flight_number TEXT, status TEXT, booking_date TEXT, FOREIGN KEY(user_id) REFERENCES users(user_id), FOREIGN KEY(flight_number) REFERENCES flights(flight_number))''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS waiting_list (wait_id TEXT PRIMARY KEY, user_id INTEGER, flight_number TEXT, priority TEXT, FOREIGN KEY(user_id) REFERENCES users(user_id), FOREIGN KEY(flight_number) REFERENCES flights(flight_number))''')
     conn.commit()
     conn.close()
 
 def insert_sample_data():
-    """Inserts dummy data for initial testing and demonstration."""
     conn = get_connection()
     cursor = conn.cursor()
-
-    # Check if data already exists to prevent duplicate insertion errors
+    
     cursor.execute("SELECT COUNT(*) FROM users")
-    if cursor.fetchone()[0] > 0:
-        conn.close()
-        return  # Data already seeded
-
-    # Insert Admin and Passenger
-    # Note: In a real app, passwords should be hashed. We will handle hashing logic in the Service layer later.
-    cursor.execute("INSERT INTO users (username, password, name, email, phone, role) VALUES ('admin', 'admin123', 'System Admin', 'admin@airline.com', '0000000000', 'admin')")
-    cursor.execute("INSERT INTO users (username, password, name, email, phone, role) VALUES ('johndoe', 'pass123', 'John Doe', 'john@example.com', '1234567890', 'passenger')")
-
-    # Insert Airports
-    airports = [
-        ('HYD', 'Rajiv Gandhi Intl', 'Hyderabad'),
-        ('DEL', 'Indira Gandhi Intl', 'Delhi'),
-        ('BOM', 'Chhatrapati Shivaji', 'Mumbai'),
-        ('BLR', 'Kempegowda Intl', 'Bangalore'),
-        ('MAA', 'Chennai Intl', 'Chennai')
-    ]
-    cursor.executemany("INSERT INTO airports (code, name, city) VALUES (?, ?, ?)", airports)
-
-    # Insert Routes (for Dijkstra)
-    routes = [
-        ('HYD', 'BLR', 500),
-        ('HYD', 'BOM', 700),
-        ('BOM', 'DEL', 1150),
-        ('BLR', 'DEL', 1700),
-        ('HYD', 'DEL', 1500),
-        ('BOM', 'MAA', 1030),
-        ('BLR', 'MAA', 350)
-    ]
-    for src, dest, dist in routes:
-        cursor.execute("INSERT INTO routes (source, destination, distance) VALUES (?, ?, ?)", (src, dest, dist))
-        # Assuming undirected graph for flights (two-way routes)
-        cursor.execute("INSERT INTO routes (source, destination, distance) VALUES (?, ?, ?)", (dest, src, dist))
-
-    # Insert Flights
-    flights = [
-        ('FL101', 'Air India', 'HYD', 'DEL', '2023-12-01', '08:00', '10:30', 100, 100, 5500.00),
-        ('FL102', 'IndiGo', 'BOM', 'DEL', '2023-12-01', '09:00', '11:15', 150, 150, 4200.00),
-        ('FL103', 'SpiceJet', 'HYD', 'BLR', '2023-12-01', '06:30', '07:45', 50, 50, 2500.00)
-    ]
-    cursor.executemany("INSERT INTO flights (flight_number, airline, source, destination, flight_date, dep_time, arr_time, total_seats, available_seats, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", flights)
-
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("INSERT INTO users (username, password, role, name) VALUES ('admin', 'admin123', 'admin', 'System Admin')")
+        cursor.execute("INSERT INTO users (username, password, role, name) VALUES ('johndoe', 'pass123', 'passenger', 'John Doe')")
+    
+    cursor.execute("SELECT COUNT(*) FROM flights")
+    if cursor.fetchone()[0] == 0:
+        today = datetime.date.today().isoformat()
+        flights = [
+            ('IG101', 'IndiGo', 'DEL', 'BOM', today, '06:00', '08:10', 180, 180, 4500.0),
+            ('AI102', 'Air India', 'DEL', 'BLR', today, '07:30', '10:15', 200, 200, 5500.0),
+            ('SJ103', 'SpiceJet', 'DEL', 'HYD', today, '08:00', '10:15', 150, 150, 4200.0),
+            ('UK104', 'Vistara', 'DEL', 'MAA', today, '09:00', '11:45', 160, 160, 5800.0),
+            ('AK105', 'Akasa Air', 'DEL', 'CCU', today, '10:15', '12:30', 180, 180, 4800.0),
+            ('IG106', 'IndiGo', 'DEL', 'SXR', today, '11:30', '13:00', 180, 180, 3500.0),
+            ('AI107', 'Air India', 'DEL', 'JAI', today, '12:45', '13:45', 120, 120, 2500.0),
+            ('SJ108', 'SpiceJet', 'DEL', 'LKO', today, '14:00', '15:10', 150, 150, 2800.0),
+            ('UK109', 'Vistara', 'DEL', 'ATQ', today, '15:30', '16:40', 160, 160, 2600.0),
+            ('AK110', 'Akasa Air', 'BOM', 'GOI', today, '06:30', '07:45', 180, 180, 3000.0),
+            ('IG111', 'IndiGo', 'BOM', 'PNQ', today, '08:00', '08:45', 120, 120, 1500.0),
+            ('AI112', 'Air India', 'BOM', 'BLR', today, '09:30', '11:15', 200, 200, 3500.0),
+            ('SJ113', 'SpiceJet', 'BOM', 'AMD', today, '11:00', '12:15', 150, 150, 3200.0),
+            ('UK114', 'Vistara', 'BLR', 'MAA', today, '07:00', '08:00', 160, 160, 2500.0),
+            ('AK115', 'Akasa Air', 'BLR', 'TRV', today, '08:30', '10:00', 180, 180, 3800.0),
+            ('IG116', 'IndiGo', 'BLR', 'COK', today, '10:15', '11:30', 180, 180, 3600.0),
+            ('AI117', 'Air India', 'HYD', 'BLR', today, '12:00', '13:10', 200, 200, 3000.0),
+            ('SJ118', 'SpiceJet', 'HYD', 'MAA', today, '14:30', '15:45', 150, 150, 3200.0),
+            ('UK119', 'Vistara', 'HYD', 'PNQ', today, '16:00', '17:15', 160, 160, 3400.0),
+            ('AK120', 'Akasa Air', 'CCU', 'MAA', today, '17:30', '19:45', 180, 180, 4500.0),
+            ('IG121', 'IndiGo', 'AMD', 'JAI', today, '19:00', '20:15', 180, 180, 3000.0),
+            ('AI122', 'Air India', 'TRV', 'COK', today, '21:30', '22:15', 120, 120, 1800.0),
+            ('SJ123', 'SpiceJet', 'AMD', 'BLR', today, '06:15', '08:30', 150, 150, 4300.0),
+            ('UK124', 'Vistara', 'TRV', 'DEL', today, '08:45', '12:15', 160, 160, 7500.0),
+            ('IG201', 'IndiGo', 'BOM', 'DEL', today, '10:00', '12:10', 180, 180, 4600.0),
+            ('AI202', 'Air India', 'BLR', 'DEL', today, '13:00', '15:45', 200, 200, 5600.0),
+            ('SJ203', 'SpiceJet', 'HYD', 'DEL', today, '16:00', '18:15', 150, 150, 4300.0),
+            ('UK204', 'Vistara', 'MAA', 'DEL', today, '19:00', '21:45', 160, 160, 5900.0),
+            ('AK205', 'Akasa Air', 'CCU', 'DEL', today, '22:15', '00:30', 180, 180, 4900.0),
+            ('IG206', 'IndiGo', 'SXR', 'DEL', today, '08:30', '10:00', 180, 180, 3600.0),
+            ('AI207', 'Air India', 'JAI', 'DEL', today, '15:45', '16:45', 120, 120, 2600.0),
+            ('SJ208', 'SpiceJet', 'LKO', 'DEL', today, '18:00', '19:10', 150, 150, 2900.0),
+            ('UK209', 'Vistara', 'ATQ', 'DEL', today, '20:30', '21:40', 160, 160, 2700.0),
+            ('AK210', 'Akasa Air', 'GOI', 'BOM', today, '09:30', '10:45', 180, 180, 3100.0),
+            ('IG211', 'IndiGo', 'PNQ', 'BOM', today, '11:00', '11:45', 120, 120, 1600.0),
+            ('AI212', 'Air India', 'BLR', 'BOM', today, '13:30', '15:15', 200, 200, 3600.0),
+            ('SJ213', 'SpiceJet', 'AMD', 'BOM', today, '16:00', '17:15', 150, 150, 3300.0),
+            ('UK214', 'Vistara', 'MAA', 'BLR', today, '10:00', '11:00', 160, 160, 2600.0),
+            ('AK215', 'Akasa Air', 'TRV', 'BLR', today, '12:30', '14:00', 180, 180, 3900.0),
+            ('IG216', 'IndiGo', 'COK', 'BLR', today, '15:15', '16:30', 180, 180, 3700.0)
+        ]
+        cursor.executemany("INSERT INTO flights VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", flights)
+        
     conn.commit()
     conn.close()
-
-if __name__ == "__main__":
-    setup_database()
-    insert_sample_data()
-    print("Database setup complete and sample data inserted successfully.")

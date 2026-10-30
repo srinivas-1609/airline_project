@@ -6,7 +6,6 @@ class AuthService:
     @staticmethod
     def login(username, password):
         """Authenticates a user via O(1) Hash Table lookup."""
-        # Using user_hash and .search()
         user = data_store.user_hash.search(username)
         if user and user['password'] == password:
             return user
@@ -37,7 +36,7 @@ class AuthService:
                 'role': 'passenger', 
                 'name': name
             }
-            # Using user_hash and .insert()
+    
             data_store.user_hash.insert(username, user_data)
             
             return True, "Account created successfully! You can now log in."

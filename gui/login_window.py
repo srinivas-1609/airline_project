@@ -8,34 +8,30 @@ class LoginWindow:
     def __init__(self, root):
         self.root = root
         self.root.title("Airline Reservation System - Login")
-        self.root.geometry("400x420")
+        self.root.geometry("400x470")
         self.root.configure(bg="#ffffff")
         
-        # Title
         tk.Label(root, text="Airline Reservation System", font=("Arial", 16, "bold"), bg="#ffffff").pack(pady=25)
         
-        # Username
         tk.Label(root, text="Username:", font=("Arial", 12), bg="#ffffff").pack()
         self.username_entry = tk.Entry(root, font=("Arial", 12), bg="#f1f1f1")
         self.username_entry.pack(pady=5)
         
-        # Password
         tk.Label(root, text="Password:", font=("Arial", 12), bg="#ffffff").pack()
         self.password_entry = tk.Entry(root, show="*", font=("Arial", 12), bg="#f1f1f1")
         self.password_entry.pack(pady=5)
         
-        # Login Button
         tk.Button(root, text="Login", command=self.handle_login, bg="#4CAF50", fg="white", font=("Arial", 12, "bold"), width=15).pack(pady=15)
         
         tk.Label(root, text="Don't have an account?", bg="#ffffff", font=("Arial", 10)).pack(pady=5)
-        
-        # Register Button
         tk.Button(root, text="Register New Passenger", command=self.open_register_window, bg="#2196F3", fg="white", font=("Arial", 10, "bold"), width=20).pack(pady=5)
+        
+        tk.Label(root, text="Or just browse flights:", bg="#ffffff", font=("Arial", 10)).pack(pady=5)
+        tk.Button(root, text="Continue as Guest", command=self.continue_guest, bg="#9e9e9e", fg="white", font=("Arial", 10, "bold"), width=20).pack(pady=5)
 
     def handle_login(self):
         username = self.username_entry.get().strip()
         password = self.password_entry.get().strip()
-        
         user = AuthService.login(username, password)
         
         if user:
@@ -43,7 +39,11 @@ class LoginWindow:
             self.password_entry.delete(0, tk.END)
             self.open_dashboard(user)
         else:
-            messagebox.showerror("Login Failed", "Invalid username or password.\nPlease try again.")
+            messagebox.showerror("Login Failed", "Invalid username or password.")
+
+    def continue_guest(self):
+        guest_user = {'user_id': None, 'role': 'guest', 'name': 'Guest', 'username': 'guest'}
+        self.open_dashboard(guest_user)
 
     def open_dashboard(self, user):
         self.root.withdraw() 
@@ -56,7 +56,6 @@ class LoginWindow:
             PassengerDashboard(dash_window, user, self.root)
 
     def open_register_window(self):
-        """Opens a new window for passenger sign-up."""
         reg_win = tk.Toplevel(self.root)
         reg_win.title("Passenger Registration")
         reg_win.geometry("350x350")
@@ -88,7 +87,7 @@ class LoginWindow:
             success, msg = AuthService.register_passenger(name, username, password)
             if success:
                 messagebox.showinfo("Success", msg)
-                reg_win.destroy() # Close registration window
+                reg_win.destroy()
             else:
                 messagebox.showerror("Error", msg)
                 

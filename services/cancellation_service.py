@@ -10,7 +10,6 @@ class CancellationService:
     def cancel_booking(booking_id):
         """Cancels a booking and automatically promotes a waiting list passenger using our Priority Queue."""
         
-        # 1. Find the booking in our Booking AVL Tree (O(log n))
         booking_node = data_store.booking_tree.search(data_store.booking_root, booking_id)
         if not booking_node:
             return False, "Error: Booking not found in system."
@@ -24,43 +23,34 @@ class CancellationService:
         conn = get_connection()
         cursor = conn.cursor()
         
-        # 2. Cancel the current booking in SQLite and AVL Tree
         cursor.execute("UPDATE bookings SET status = 'CANCELLED' WHERE booking_id = ?", (booking_id,))
         booking.status = 'CANCELLED'
         
         message = f"Booking {booking_id} cancelled successfully.\n"
 
-        # 3. ACTUAL DSA IMPLEMENTATION: Pop from our Custom Priority Queue!
         waiting_passenger_data = data_store.waiting_list_pq.pop_for_flight(flight.flight_number)
 
         if waiting_passenger_data:
-            # We found someone in the Min-Heap waiting for this flight!
             wait_id = waiting_passenger_data['wait_id']
             next_user_id = waiting_passenger_data['user_id']
             
-            # Generate a new booking for them
             new_booking_id = "BKG-" + str(uuid.uuid4())[:8].upper()
             
-            # Insert their new booking into SQLite
             cursor.execute('INSERT INTO bookings (booking_id, user_id, flight_number, status) VALUES (?, ?, ?, ?)',
                            (new_booking_id, next_user_id, flight.flight_number, 'CONFIRMED'))
             
             # Delete their old waiting list record from SQLite
             cursor.execute('DELETE FROM waiting_list WHERE wait_id = ?', (wait_id,))
             
-            # Carry their passenger details over to the new booking (W<id> -> BKG-...)
-            # using the SAME connection/transaction to avoid a database lock.
             old_details = ReservationService.get_passenger_details(f'W{wait_id}', conn)
             if old_details:
                 ReservationService.save_passenger_details(new_booking_id, old_details, conn)
             
-            # Insert their new booking into the Booking AVL Tree
             new_b = Booking(new_booking_id, next_user_id, flight.flight_number, 'CONFIRMED', 'Just Now')
             data_store.booking_root = data_store.booking_tree.insert(data_store.booking_root, new_booking_id, new_b)
             
             message += f"Good news! A waiting list passenger was automatically promoted and booked using the Priority Queue!"
         else:
-            # If no one is waiting in the queue, just increase the available seats
             if flight:
                 flight.available_seats += 1
                 cursor.execute("UPDATE flights SET available_seats = ? WHERE flight_number = ?", 

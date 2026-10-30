@@ -1,42 +1,37 @@
 import tkinter as tk
-from tkinter import messagebox
 from gui.flight_search import FlightSearchWindow
 from gui.route_search import RouteSearchWindow
-from gui.my_bookings import MyBookingsWindow  # <-- Added Import
+from gui.my_bookings import MyBookingsWindow
 
 class PassengerDashboard:
-    def __init__(self, root, user_data, login_window_root):
+    def __init__(self, root, user, login_root=None):
         self.root = root
-        self.login_window_root = login_window_root
-        self.user_data = user_data 
-        self.root.title(f"Passenger Dashboard - {user_data.get('username', 'Passenger')}")
-        self.root.geometry("600x450")
-        self.root.configure(bg="#f4f6f9")
+        self.user = user
+        self.login_root = login_root
+        self.root.title("Passenger Dashboard")
+        self.root.geometry("500x400")
 
-        # Header
-        tk.Label(root, text="Passenger Portal", font=("Arial", 18, "bold"), bg="#f4f6f9").pack(pady=20)
+        welcome_name = self.user['name'] if self.user['role'] != 'guest' else 'Guest'
+        tk.Label(self.root, text=f"Welcome, {welcome_name}!", font=("Arial", 16, "bold")).pack(pady=20)
 
-        # Buttons
-        tk.Button(root, text="Search & Book Flights", command=self.open_flight_search, width=30, height=2, bg="#4CAF50", fg="white", font=("Arial", 12)).pack(pady=10)
+        tk.Button(self.root, text="View & Book Flights", command=self.open_flight_search, bg="#2196F3", fg="white", width=25, font=("Arial", 12)).pack(pady=10)
+        tk.Button(self.root, text="Find Shortest Route", command=self.open_route_search, bg="#2196F3", fg="white", width=25, font=("Arial", 12)).pack(pady=10)
         
-        tk.Button(root, text="Find Shortest Route", command=self.open_route_search, width=30, height=2, bg="#9C27B0", fg="white", font=("Arial", 12)).pack(pady=10)
-        
-        # Connected the My Bookings button!
-        tk.Button(root, text="My Bookings", command=self.open_my_bookings, width=30, height=2, bg="#2196F3", fg="white", font=("Arial", 12)).pack(pady=10)
-        
-        # Logout Button
-        tk.Button(root, text="Logout", command=self.logout, width=30, height=2, bg="#f44336", fg="white", font=("Arial", 12)).pack(pady=20)
+        if self.user['role'] != 'guest':
+            tk.Button(self.root, text="My Bookings", command=self.open_my_bookings, bg="#2196F3", fg="white", width=25, font=("Arial", 12)).pack(pady=10)
+
+        tk.Button(self.root, text="Logout" if self.user['role'] != 'guest' else "Back to Login", command=self.logout, bg="#f44336", fg="white", width=25, font=("Arial", 12)).pack(pady=10)
 
     def open_flight_search(self):
-        FlightSearchWindow(self.root, self.user_data)
+        FlightSearchWindow(self.root, self.user, self.login_root)
 
     def open_route_search(self):
-        RouteSearchWindow(self.root)
+        RouteSearchWindow(self.root, self.user)
 
     def open_my_bookings(self):
-        """Opens the window to view and cancel bookings."""
-        MyBookingsWindow(self.root, self.user_data)
+        MyBookingsWindow(self.root, self.user)
 
     def logout(self):
         self.root.destroy()
-        self.login_window_root.deiconify()
+        if self.login_root:
+            self.login_root.deiconify()

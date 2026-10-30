@@ -21,11 +21,11 @@ class AVLTree:
         y = z.left
         T3 = y.right
 
-        # Perform rotation
+      
         y.right = z
         z.left = T3
 
-        # Update heights
+       
         z.height = 1 + max(self.get_height(z.left), self.get_height(z.right))
         y.height = 1 + max(self.get_height(y.left), self.get_height(y.right))
 
@@ -35,18 +35,18 @@ class AVLTree:
         y = z.right
         T2 = y.left
 
-        # Perform rotation
+       
         y.left = z
         z.right = T2
 
-        # Update heights
+        
         z.height = 1 + max(self.get_height(z.left), self.get_height(z.right))
         y.height = 1 + max(self.get_height(y.left), self.get_height(y.right))
 
         return y
 
     def insert(self, root, key, data=None):
-        # 1. Normal BST Insertion
+      
         if not root:
             return AVLNode(key, data)
         elif key < root.key:
@@ -54,28 +54,26 @@ class AVLTree:
         elif key > root.key:
             root.right = self.insert(root.right, key, data)
         else:
-            # Duplicate keys just update the data in our system
+           
             root.data = data
             return root
 
-        # 2. Update height of the ancestor node
+        
         root.height = 1 + max(self.get_height(root.left), self.get_height(root.right))
 
-        # 3. Get the balance factor
+        
         balance = self.get_balance(root)
 
-        # 4. If unbalanced, balance it (4 cases)
-        # Case 1: Left Left
         if balance > 1 and key < root.left.key:
             return self.right_rotate(root)
-        # Case 2: Right Right
+        
         if balance < -1 and key > root.right.key:
             return self.left_rotate(root)
-        # Case 3: Left Right
+        
         if balance > 1 and key > root.left.key:
             root.left = self.left_rotate(root.left)
             return self.right_rotate(root)
-        # Case 4: Right Left
+       
         if balance < -1 and key < root.right.key:
             root.right = self.right_rotate(root.right)
             return self.left_rotate(root)
@@ -93,7 +91,7 @@ class AVLTree:
         return self.get_max_value_node(root.right)
 
     def delete(self, root, key):
-        # 1. Normal BST Delete
+   
         if not root:
             return root
 
@@ -110,8 +108,7 @@ class AVLTree:
                 temp = root.left
                 root = None
                 return temp
-
-            # Node with two children: Get inorder successor
+         
             temp = self.get_min_value_node(root.right)
             root.key = temp.key
             root.data = temp.data
@@ -119,25 +116,20 @@ class AVLTree:
 
         if root is None:
             return root
-
-        # 2. Update height
+        
         root.height = 1 + max(self.get_height(root.left), self.get_height(root.right))
-
-        # 3. Get the balance factor
         balance = self.get_balance(root)
 
-        # 4. If unbalanced, balance it (4 cases)
-        # Case 1: Left Left
         if balance > 1 and self.get_balance(root.left) >= 0:
             return self.right_rotate(root)
-        # Case 2: Left Right
+     
         if balance > 1 and self.get_balance(root.left) < 0:
             root.left = self.left_rotate(root.left)
             return self.right_rotate(root)
-        # Case 3: Right Right
+
         if balance < -1 and self.get_balance(root.right) <= 0:
             return self.left_rotate(root)
-        # Case 4: Right Left
+
         if balance < -1 and self.get_balance(root.right) > 0:
             root.right = self.right_rotate(root.right)
             return self.left_rotate(root)
@@ -145,7 +137,7 @@ class AVLTree:
         return root
 
     def search(self, root, key):
-        # Returns the node if found, else None
+       
         if root is None or root.key == key:
             return root
         if root.key < key:
